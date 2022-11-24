@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firebase_version9_Auth_RealtimeDB Chat app</title>
+<style>.remove:hover{background:aquamarine;}</style>
+</head>
+
+<style>
+    #output {
+        background:  gainsboro;
+        height: 300px;
+        overflow: scroll;
+        border-color: black;
+        margin-top: 20px;
+    }
+
+    .msg:nth-child(odd) {
+        width: 40%;
+        background: rgb(88, 178, 220);
+        margin-left: auto;
+        border-radius: 10px;
+        padding: 20px;
+        box-sizing: border-box;
+        line-height: 1em;
+    }
+
+    .msg:nth-child(even) {
+        background: pink;
+        width: 40%;
+        padding: 20px;
+        border-radius: 10px;
+        line-height: auto; 
+        
+    }
+
+    #nametag {
+        font-size: small;
+        color: black;
+    }
+
+    #mainmsg {
+        font-size: large;
+        color: black;
+    }
+
+
+</style>
+
+<body>
+    <button id="out">ログアウト</button>
+    <h1 id="status"> Login... </h1>
+    <!-- コンテンツ表示画面 Authの元コンテンツ--> 
+    <!-- <div>
+        <div>
+            名前：<span id="uname"></span><br>
+            <img src="" id="prof">
+        </div>
+        <div>
+            <select id="title">
+                <option value="memo1">memo1</option>
+                <option value="memo2">memo2</option>
+                <option value="memo3">memo3</option>
+            </select>
+        </div>
+        <div>
+            <textarea id="text" cols="30" rows="10"></textarea>
+            <button id="send">送信</button>
+        </div>
+    </div> -->
+    <!-- コンテンツ表示画面 -->
+
+    <div>
+        <div>
+            ログイン：<span id="name"></span><br>
+            ハンドル：<input type="text" id="uname" color="black" placeholder="初回入力して下さい"><br> 
+            <img src="" id="prof">
+        </div>
+        <div>
+            <textarea id="text" cols="35" rows="7" placeholder="Messageを入力  "></textarea><br>
+            <button id="send">送信</button>
+            <button id="deleteall">全消去</button>
+            <button id="deletechecked">チェックしたものを消去</button>
+        </div>
+        <div id="output" style="overflow: auto; height: 300px;" ></div>
+    </div>
+    <!--/ コンテンツ表示画面 -->
+
+<!-- // jQuerry //  -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script type="module">
+//###############################################
+// 必要なJSを読み込み
+//###############################################
+import { initializeApp } 
+    from "https://www.gstatic.com/firebasejs/9.14.0/firebase-app.js";
+import { getDatabase, ref, push, set, onValue, onChildAdded, remove, onChildRemoved } 
+    from "https://www.gstatic.com/firebasejs/9.14.0/firebase-database.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } 
+    from "https://www.gstatic.com/firebasejs/9.14.0/firebase-auth.js";
+ 
+
+//###############################################
+//FirebaseConfig [ KEYを取得して設定！！ ]
+//###############################################
+
+// API Key は別途提出。実験の際にはKeyを戻す。
+
+const app = initializeApp(firebaseConfig);
+
+
+//###############################################
+//Firebase-RealtimeDatabase接続
+//###############################################
+const db  = getDatabase(app); //RealtimeDBに接続
+const dbRef = ref(db, 'chatapp');  // chatappが今回のプロジェクト名。DBをRef参照する
+
+//###############################################
+//GoogleAuth用
+//###############################################
+const provider = new GoogleAuthProvider();
+provider.addScope('https://www.googleapis.com/auth/contacts.readonly');
+const auth = getAuth();
+
+
+//###############################################
+//Loginしていれば処理します
+//###############################################
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        // User is signed in, see docs for a list of available properties
+        // https://firebase.google.com/docs/reference/js/firebase.User
+        const uid = user.uid;
+        //ユーザー情報取得できます
+        if (user !== null) {
+            user.providerData.forEach((profile) => {
+                //Login情報取得
+                $("#name").text(profile.displayName);
+                $("#prof").attr("src",profile.photoURL);
+                $("#uname").text(profile.displayName);
+                // console.log("Sign-in provider: " + profile.providerId);
+                // console.log("Provider-specific UID: " + profile.uid);
+                // console.log("Email: " + profile.email);
+                // console.log("Photo URL: " + profile.photoURL);  全部取れていそう
+            });
+            $("#status").fadeOut(500);
+        }
+
+        // ここから下
+        //データ登録(Click)
+        // $("#send").on("click",function() {
+        //     const msg = {
+        //         title: $("#title").val(),
+        //         text:  $("#text").val()
+        //     }
+        //     const dbRef = ref( db, "users/"+uid+"/memo/"+$("#title").val() ); //RealtimeDB内の"chat"を使う
+        //     set(dbRef, msg);  //DBに値をセットする
+        // });
+
+        // //最初にデータ取得＆onSnapshotでリアルタイムにデータを取得
+        // $("#title").on("change",function(){
+        //     const dbRef = ref( db, "users/"+uid+"/memo/"+$(this).val() ); //RealtimeDB内の"chat"を使う
+        //     onValue(dbRef, function(data){   
+        //         const msg  = data.val();    //オブジェクトデータを取得し、変数msgに代入
+        //         console.log(msg);
+        //         // const key  = data.key;      //データのユニークキー（削除や更新に使用可能）
+        //         $("#text").val(msg.text);
+        //     });
+        // });
+        // ここまでをかきかえる
+
+        // chat app の処理
+        // 送信の処理
+        $("#send").on('click', function() {
+            // id = "uname"の場所を取得する
+            const uname = $('#uname').val();
+            // console.log(uname, 'aaa');
+            // id = "text"の場所を取得する
+            const text = $('#text').val();
+            // console.log(text, 'sss');
+            // 入力時間を取得する。ちょっと上手くいかない。firebase. undefinedになる
+            // const myTimestamp = firebase.firestore.Timestamp.now();
+            // const myToDated = myTimestamp.toDate();
+
+            // 入力欄が空白のままでないかチェック
+            if (text !== "") {
+            
+            const msg = {
+                uname: uname,  // ペアを作る時名前揃えることある。右のunameは中身で上のに対応
+                text: text, 
+            }
+
+        // 保存のコード. firebaseに送る準備
+            const newPostRef = push(dbRef) // データを送信できる準備。上で定義したfirebaseのdbRefを参照する
+            set(newPostRef, msg); // firebaseの登録できる場所に保存する
+
+        // 送信後に入力欄を空にする。ユーザーの体験が向上する。送信おせたか分かる＝入力欄の中身が消える
+        // $('#uname').val("");  今回　unameは消さない。focusはtextにあてる。
+            $('#text').val("");
+            $("#text").focus();
+        } else {
+            alert("本文を入力して下さい！")
+        }
+
+        // send送信イベント　この下消さない
+        });
+
+    // 受信処理。　注意。上の送信処理の中にかかない。onChildAdded は上でimportしているもの
+        onChildAdded(dbRef, function(data){
+            const msg = data.val();  // firebaseのデータの塊をとってきて
+            // console.log(msg, 'データの塊');
+            const key = data.key;    // そのデータの塊の中の鍵を参照
+            // console.log(key, 'データの塊にアクセス');
+            // console.log(msg.uname);
+            // console.log(msg.text);
+
+            // es6 のテンプレートリテラル使う
+            let h = `
+                <div class = "msg">    
+                    <p id="nametag">${msg.uname}</p>
+                    <p id="mainmsg">${msg.text}</p>
+                    <input type="radio" name="radio" value="key">
+                </div>
+
+            `;
+
+            // htmlに埋め込む
+            // append()というjquerryのおまじない
+            $('#output').append(h);
+            const output = document.getElementById('output');
+            output.scrollTo(0, output.scrollHeight);
+            // console.log(key);
+        });
+
+        // remove を書いてメッセージをDBから消したい = 全消去　
+         $("#deleteall").on('click', function() {
+            var alert = "本当に全て消去しますか？";
+            if (confirm(alert) == true) { 
+                remove(dbRef);
+                location.reload();
+            }
+            else {
+                location.reload();
+            }   
+         });
+
+         // ラジオボタンをチェックしたやつを消すremove を書いてメッセージをDBから消したい = 全消去　
+         $("#deletechecked").on('click', function() {
+            const key1 = $('input:radio[name="radio"]:checked').val();
+            var alert = "削除しますか？";
+            if (confirm(alert) == true) { 
+                remove(dbRef, key1);
+                location.reload();
+                console.log(key);
+            }
+            else {
+                location.reload();
+                console.log(key);
+            }   
+         });
+
+
+         $("#key").on('click', function() {
+            remove(dbRef, "key");
+            console.log(key);
+            // location.reload();
+         });
+
+        // LINE風にするには、DBから消すのと、自分の表示から消すのが存在するけどどうする？
+
+
+    } else {
+        _redirect();  // User is signed out
+    }
+});
+
+
+//###############################################
+//Logout処理
+//###############################################
+$("#out").on("click", function () {
+    // signInWithRedirect(auth, provider);
+    signOut(auth).then(() => {
+        // Sign-out successful.
+        _redirect();
+    }).catch((error) => {
+        // An error happened.
+        console.error(error);
+    });
+});
+
+
+//###############################################
+//Login画面へリダイレクト(関数作成)
+//###############################################
+function _redirect(){
+    location.href="login.html";
+}
+
+</script>
+</body>
+</html>
